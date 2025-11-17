@@ -2,6 +2,7 @@ import os
 import requests
 import json
 from datetime import datetime
+import time # Import time for the sleep function
 
 # --- Configuration ---
 # Load secrets from environment variables
@@ -22,7 +23,9 @@ KEYWORDS = [
     "crypto dapp"
 ]
 SINCE_DATE = "2025-07-01"  # YYYY-MM-DD
-ACTOR_ID = "apify/twitter-scraper"
+
+# **CORRECTION APPLIED HERE:** Swapped to the current, official X/Tweets scraper ID
+ACTOR_ID = "apify/tweets-scraper" 
 
 # --- Helper Functions ---
 
@@ -66,14 +69,14 @@ def apify_twitter_search(keywords, since_date, max_results=600):
     start_url = f"https://api.apify.com/v2/acts/{ACTOR_ID}/runs"
     run_resp = requests.post(start_url, json={"input": data}, headers=headers)
     
-    # **IMPROVEMENT 1: Check HTTP Status Code for successful run start**
+    # Check HTTP Status Code for successful run start
     if run_resp.status_code not in [201, 200]:
         error_msg = f"Failed to start Apify Actor ({ACTOR_ID}). Status: {run_resp.status_code}. Response: {run_resp.text}"
         raise Exception(error_msg)
         
     run_info = run_resp.json()
     
-    # **IMPROVEMENT 2: Gracefully check for 'id' key existence**
+    # Gracefully check for 'id' key existence
     run_id = run_info.get("data", {}).get("id")
     if not run_id:
         # Fallback for non-standard response structure
@@ -89,14 +92,13 @@ def apify_twitter_search(keywords, since_date, max_results=600):
     while True:
         resp = requests.get(status_url, headers=headers)
         
-        # Check status of the status check request
         if resp.status_code != 200:
             raise Exception(f"Failed to check Actor status. Status: {resp.status_code}. Response: {resp.text}")
             
         status = resp.json().get("data", {}).get("status")
         if status in ["SUCCEEDED", "FAILED", "TIMED-OUT"]:
             break
-        import time; time.sleep(10)
+        time.sleep(10)
         
     if status != "SUCCEEDED":
         raise Exception(f"Apify actor run failed or timed out. Final status: {status}")
@@ -147,6 +149,7 @@ def format_tweet_summary(tweet):
     # Format date more cleanly
     created_at = datetime.strptime(tweet['createdAt'][:19], '%Y-%m-%dT%H:%M:%S').strftime('%b %d, %Y')
     
+    # Use comma formatting for followers
     summary = (
         f"**{project_name}** ({followers:,} followers)\n"
         f"[[View Tweet]]({url})\n"
@@ -161,7 +164,7 @@ def main():
     """Main function to run the scanner and send results."""
     print("Starting Web3 X scan...")
     
-    # **IMPROVEMENT 3: Environment Variable Check**
+    # Environment Variable Check
     if not APIFY_TOKEN:
         print("FATAL: APIFY_TOKEN environment variable is not set. Exiting.")
         return
@@ -178,12 +181,11 @@ def main():
             send_telegram_message("🤖 **Web3 Scan Results:** No new relevant project announcements found.")
             return
 
-        # Send results in batches to Telegram (max 4096 chars per message)
-        batch_size = 5 # Reduced batch size for safer formatting
-        
         # Send a header message first
         send_telegram_message(f"🚨 **New Web3 Project Announcements** 🚨\nFound {len(filtered)} potential launches since {SINCE_DATE}.")
         
+        # Send results in batches to Telegram
+        batch_size = 5
         for i in range(0, len(filtered), batch_size):
             batch = filtered[i:i+batch_size]
             
@@ -191,7 +193,9 @@ def main():
             msg = "\n\n---\n\n".join([format_tweet_summary(t) for t in batch])
             
             sent = send_telegram_message(msg)
-            print(f"Sent batch {i//batch_size + 1}/{len(filtered)//batch_size + 1}: {sent}")
+            # Calculate total batches for better tracking
+            total_batches = (len(filtered) + batch_size - 1) // batch_size
+            print(f"Sent batch {i//batch_size + 1}/{total_batches}: {sent}")
             
     except Exception as ex:
         # Catch and report any failure
@@ -200,4 +204,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-        
+    
