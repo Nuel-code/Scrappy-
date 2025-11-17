@@ -25,8 +25,9 @@ KEYWORDS = [
 SINCE_DATE = "2025-07-01"  # YYYY-MM-DD
 
 # **FIXED APPYFY ACTOR ID**
-# Swapped to the current, official X/Twitter scraper ID
-ACTOR_ID = "apify/twitter-scraper" 
+# Swapped to the current, official X/Twitter scraper
+ACTOR_ID = "apidojo/tweet-scraper" 
+
 
 # --- Helper Functions ---
 
