@@ -24,8 +24,9 @@ KEYWORDS = [
 ]
 SINCE_DATE = "2025-07-01"  # YYYY-MM-DD
 
-# **CORRECTION APPLIED HERE:** Swapped to the current, official X/Tweets scraper ID
-ACTOR_ID = "apify/tweets-scraper" 
+# **FIXED APPYFY ACTOR ID**
+# Swapped to the current, official X/Twitter scraper ID
+ACTOR_ID = "apify/twitter-scraper" 
 
 # --- Helper Functions ---
 
@@ -72,15 +73,14 @@ def apify_twitter_search(keywords, since_date, max_results=600):
     # Check HTTP Status Code for successful run start
     if run_resp.status_code not in [201, 200]:
         error_msg = f"Failed to start Apify Actor ({ACTOR_ID}). Status: {run_resp.status_code}. Response: {run_resp.text}"
+        # Raise the exception so it is caught by the main logic's try/except block
         raise Exception(error_msg)
         
     run_info = run_resp.json()
     
     # Gracefully check for 'id' key existence
+    # Note: Apify API responses usually have a 'data' wrapper for run info
     run_id = run_info.get("data", {}).get("id")
-    if not run_id:
-        # Fallback for non-standard response structure
-        run_id = run_info.get("id")
         
     if not run_id:
         raise Exception(f"Could not retrieve a valid run ID from Apify response: {run_info}")
@@ -88,7 +88,8 @@ def apify_twitter_search(keywords, since_date, max_results=600):
     print(f"Actor run started successfully. Run ID: {run_id}")
     
     # 2. Wait for run completion
-    status_url = f"https://api.apify.com/v2/acts/{ACTOR_ID}/runs/{run_id}"
+    # Add a token to the status URL for cleaner API interaction if needed, though usually not required for public actors
+    status_url = f"https://api.apify.com/v2/acts/{ACTOR_ID}/runs/{run_id}?token={APIFY_TOKEN}"
     while True:
         resp = requests.get(status_url, headers=headers)
         
@@ -108,7 +109,8 @@ def apify_twitter_search(keywords, since_date, max_results=600):
     if not dataset_id:
         raise Exception(f"Could not retrieve defaultDatasetId after run succeeded.")
         
-    dataset_url = f"https://api.apify.com/v2/datasets/{dataset_id}/items?clean=true"
+    # Add token to dataset URL as well for auth
+    dataset_url = f"https://api.apify.com/v2/datasets/{dataset_id}/items?clean=true&token={APIFY_TOKEN}"
     result_resp = requests.get(dataset_url, headers=headers)
     
     if result_resp.status_code != 200:
@@ -147,7 +149,12 @@ def format_tweet_summary(tweet):
     followers = tweet['user'].get('followersCount', 0)
     description = tweet['user'].get('description', 'No description provided.')
     # Format date more cleanly
-    created_at = datetime.strptime(tweet['createdAt'][:19], '%Y-%m-%dT%H:%M:%S').strftime('%b %d, %Y')
+    # Note: Need to handle potential timezone info if the string has a 'Z' at the end
+    created_at_str = tweet['createdAt']
+    if created_at_str.endswith('Z'):
+        created_at_str = created_at_str[:-1]
+    
+    created_at = datetime.strptime(created_at_str[:19], '%Y-%m-%dT%H:%M:%S').strftime('%b %d, %Y')
     
     # Use comma formatting for followers
     summary = (
