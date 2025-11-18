@@ -26,7 +26,7 @@ SINCE_DATE = "2025-07-01"  # YYYY-MM-DD
 
 # **FIXED APPYFY ACTOR ID**
 # Swapped to the current, official X/Twitter scraper
-ACTOR_ID = "igolaizola/x-twitter-scraper-ppe" 
+ACTOR_ID = https://api.apify.com/v2/acts/igolaizola~x-twitter-scraper-ppe/run-sync?token=YOUR_API_KEY
 
 
 # --- Helper Functions ---
